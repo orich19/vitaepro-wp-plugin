@@ -22,6 +22,11 @@ class VitaePro {
 
         // Hooks iniciales (puedes agregar más luego)
         add_action('init', [$this, 'init_plugin']);
+
+        if (is_admin()) {
+            require_once plugin_dir_path(__FILE__) . 'admin/class-admin-menu.php';
+            VitaePro_Admin_Menu::init();
+        }
     }
 
     public function load_dependencies() {
