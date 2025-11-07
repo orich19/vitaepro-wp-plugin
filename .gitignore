@@ -1,0 +1,21 @@
+# WordPress plugin stuff
+*.log
+*.tmp
+*.cache
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Composer
+/vendor/
+composer.lock
+
+# Node
+/node_modules/
+npm-debug.log
+
+# IDE
+.idea/
+.vscode/
