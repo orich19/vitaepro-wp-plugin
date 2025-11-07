@@ -10,6 +10,10 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Seguridad básica
 
+require_once plugin_dir_path(__FILE__) . 'includes/class-activator.php';
+
+register_activation_hook(__FILE__, ['VitaePro_Activator', 'activate']);
+
 class VitaePro {
 
     public function __construct() {
