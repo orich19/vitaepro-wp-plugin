@@ -133,6 +133,12 @@ $create_url = add_query_arg( $create_args, admin_url( 'admin.php' ) );
 <div class="wrap">
     <h1><?php esc_html_e( 'Registros', 'vitaepro' ); ?></h1>
 
+    <p>
+        <a href="<?php echo esc_url( add_query_arg( array( 'page' => 'vitaepro-export-cv' ), admin_url( 'admin.php' ) ) ); ?>" class="button button-primary">
+            <?php esc_html_e( 'Exportar CV completo', 'vitaepro' ); ?>
+        </a>
+    </p>
+
     <?php if ( $has_forced_category && $current_category_id > 0 ) : ?>
         <h2 class="wp-heading-inline"><?php echo esc_html( $forced_category_name ); ?></h2>
         <p>
@@ -254,17 +260,6 @@ $create_url = add_query_arg( $create_args, admin_url( 'admin.php' ) );
                         'vitaepro_delete_record_' . $record->id
                     );
 
-                    $export_pdf_url = '';
-
-                    if ( isset( $record->user_id ) && $record->user_id > 0 ) {
-                        $export_pdf_url = add_query_arg(
-                            array(
-                                'page'    => 'vitaepro-export-pdf',
-                                'user_id' => absint( $record->user_id ),
-                            ),
-                            admin_url( 'admin.php' )
-                        );
-                    }
                     ?>
                     <tr>
                         <td><?php echo esc_html( $record->id ); ?></td>
@@ -280,11 +275,6 @@ $create_url = add_query_arg( $create_args, admin_url( 'admin.php' ) );
                         <td>
                             <a href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Editar', 'vitaepro' ); ?></a> |
                             <a href="<?php echo esc_url( $delete_url ); ?>" onclick="return confirm('<?php echo esc_js( __( '¿Estás seguro de que deseas eliminar este registro?', 'vitaepro' ) ); ?>');"><?php esc_html_e( 'Eliminar', 'vitaepro' ); ?></a>
-                            <?php if ( $export_pdf_url ) : ?>
-                                <div style="margin-top: 6px;">
-                                    <a class="button button-primary" href="<?php echo esc_url( $export_pdf_url ); ?>"><?php esc_html_e( 'Exportar PDF', 'vitaepro' ); ?></a>
-                                </div>
-                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
