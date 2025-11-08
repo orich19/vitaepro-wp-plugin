@@ -8,6 +8,11 @@
     --vitaepro-background: #ffffff;
 }
 
+@page {
+    size: A4;
+    margin: 20mm;
+}
+
 body.vitaepro-cv-page {
     font-family: var(--vitaepro-font);
     color: var(--vitaepro-text);
@@ -102,33 +107,53 @@ body.vitaepro-cv-page {
     color: var(--vitaepro-muted);
 }
 
-.vitaepro-cv__table-wrapper {
-    overflow: hidden;
-    border-radius: 6px;
-    border: 1px solid var(--vitaepro-border);
+.vitaepro-cv__entries {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
-.vitaepro-cv__table {
+.vitaepro-cv__entry {
+    border: 1px solid var(--vitaepro-border);
+    border-radius: 8px;
+    padding: 18px;
+    background: #fafbfc;
+}
+
+.vitaepro-cv__entry-date {
+    font-size: 12px;
+    color: var(--vitaepro-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0 0 10px;
+}
+
+.vitaepro-cv__details {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
 }
 
-.vitaepro-cv__table thead th {
-    background: #f0f2f5;
-    color: var(--vitaepro-text);
-    padding: 12px;
+.vitaepro-cv__details th,
+.vitaepro-cv__details td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--vitaepro-border);
     text-align: left;
-    border-bottom: 1px solid var(--vitaepro-border);
 }
 
-.vitaepro-cv__table tbody td {
-    padding: 12px;
-    border-bottom: 1px solid var(--vitaepro-border);
-    vertical-align: top;
+.vitaepro-cv__details th {
+    width: 35%;
+    font-weight: 600;
+    color: var(--vitaepro-text);
+    background: #f4f6f8;
 }
 
-.vitaepro-cv__table tbody tr:last-child td {
+.vitaepro-cv__details td {
+    color: var(--vitaepro-muted);
+}
+
+.vitaepro-cv__details tr:last-child th,
+.vitaepro-cv__details tr:last-child td {
     border-bottom: none;
 }
 
@@ -150,5 +175,10 @@ body.vitaepro-cv-page {
 
     .vitaepro-cv-actions {
         display: none;
+    }
+
+    .vitaepro-cv__entry {
+        background: #ffffff;
+        border-color: #cccccc;
     }
 }

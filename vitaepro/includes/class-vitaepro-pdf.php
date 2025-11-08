@@ -16,8 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Handles CV HTML generation, public rendering and PDF exports.
  */
 class VitaePro_PDF {
-    const QUERY_VAR_USER = 'vitaepro_cv_user';
-    const QUERY_VAR_PDF  = 'vitaepro_cv_pdf';
+    const QUERY_VAR_TRIGGER = 'vitaepro_cv';
+    const QUERY_VAR_USER    = 'vitaepro_cv_user';
+    const QUERY_VAR_PDF     = 'vitaepro_cv_pdf';
 
     /**
      * Whether the CV stylesheet must be enqueued on the front end.
@@ -46,14 +47,26 @@ class VitaePro_PDF {
      */
     public static function register_rewrite_rules() {
         add_rewrite_rule(
+            '^cv/pdf/?$',
+            'index.php?' . self::QUERY_VAR_TRIGGER . '=1&' . self::QUERY_VAR_PDF . '=1',
+            'top'
+        );
+
+        add_rewrite_rule(
+            '^cv/?$',
+            'index.php?' . self::QUERY_VAR_TRIGGER . '=1',
+            'top'
+        );
+
+        add_rewrite_rule(
             '^cv/([0-9]+)/pdf/?$',
-            'index.php?' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_PDF . '=1',
+            'index.php?' . self::QUERY_VAR_TRIGGER . '=1&' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_PDF . '=1',
             'top'
         );
 
         add_rewrite_rule(
             '^cv/([0-9]+)/?$',
-            'index.php?' . self::QUERY_VAR_USER . '=$matches[1]',
+            'index.php?' . self::QUERY_VAR_TRIGGER . '=1&' . self::QUERY_VAR_USER . '=$matches[1]',
             'top'
         );
     }
@@ -65,6 +78,7 @@ class VitaePro_PDF {
      * @return array
      */
     public static function register_query_vars( $vars ) {
+        $vars[] = self::QUERY_VAR_TRIGGER;
         $vars[] = self::QUERY_VAR_USER;
         $vars[] = self::QUERY_VAR_PDF;
 
@@ -77,10 +91,18 @@ class VitaePro_PDF {
      * @return void
      */
     public static function handle_template_redirect() {
-        $user_id = absint( get_query_var( self::QUERY_VAR_USER ) );
+        $is_cv_request     = absint( get_query_var( self::QUERY_VAR_TRIGGER ) ) > 0;
+        $requested_user_id = absint( get_query_var( self::QUERY_VAR_USER ) );
+
+        if ( ! $is_cv_request && $requested_user_id <= 0 ) {
+            return;
+        }
+
+        $user_id = self::resolve_user_id( $requested_user_id );
 
         if ( $user_id <= 0 ) {
-            return;
+            self::render_not_found();
+            exit;
         }
 
         if ( absint( get_query_var( self::QUERY_VAR_PDF ) ) > 0 ) {
@@ -88,8 +110,47 @@ class VitaePro_PDF {
             exit;
         }
 
-        self::render_public_cv_page( $user_id );
+        self::render_public_cv_page( $user_id, $requested_user_id );
         exit;
+    }
+
+    /**
+     * Determine the user ID that should be used to render the CV.
+     *
+     * @param int $user_id Requested user ID.
+     *
+     * @return int
+     */
+    private static function resolve_user_id( $user_id ) {
+        $user_id = absint( $user_id );
+
+        if ( $user_id > 0 && get_user_by( 'id', $user_id ) ) {
+            return $user_id;
+        }
+
+        $current_user_id = get_current_user_id();
+
+        if ( $current_user_id > 0 && get_user_by( 'id', $current_user_id ) ) {
+            return $current_user_id;
+        }
+
+        $default_user_id = absint( apply_filters( 'vitaepro_cv_default_user_id', 0 ) );
+
+        if ( $default_user_id > 0 && get_user_by( 'id', $default_user_id ) ) {
+            return $default_user_id;
+        }
+
+        $admin_email = get_option( 'admin_email' );
+
+        if ( $admin_email ) {
+            $admin_user = get_user_by( 'email', $admin_email );
+
+            if ( $admin_user ) {
+                return (int) $admin_user->ID;
+            }
+        }
+
+        return 0;
     }
 
     /**
@@ -123,15 +184,35 @@ class VitaePro_PDF {
         $cv_user['description'] = is_string( $cv_user['description'] ) ? $cv_user['description'] : '';
         $cv_user['description'] = sanitize_textarea_field( $cv_user['description'] );
 
-        $categories    = self::get_categories_with_records( $user_id );
+        $categories          = self::get_all_categories();
+        $records_by_category = array();
+
+        if ( ! empty( $categories ) ) {
+            foreach ( $categories as $category ) {
+                $category_id = isset( $category['id'] ) ? (int) $category['id'] : 0;
+
+                if ( $category_id <= 0 ) {
+                    continue;
+                }
+
+                $columns = isset( $category['columns'] ) && is_array( $category['columns'] ) ? $category['columns'] : array();
+
+                $records_by_category[ $category_id ] = self::get_records_by_category( $category_id, $user_id, $columns );
+            }
+        }
+
         $template_path = self::get_plugin_dir() . 'templates/cv-template.php';
-        $cv_categories = $categories;
 
         if ( ! file_exists( $template_path ) ) {
             return '';
         }
 
+        $categories_for_template          = $categories;
+        $records_by_category_for_template = $records_by_category;
+
         ob_start();
+        $categories          = $categories_for_template; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariable -- template var.
+        $records_by_category = $records_by_category_for_template; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariable -- template var.
         include $template_path;
         $html = ob_get_clean();
 
@@ -139,17 +220,19 @@ class VitaePro_PDF {
             $html = '';
         }
 
-        return apply_filters( 'vitaepro_cv_html', $html, $user_id, $cv_categories, $cv_user );
+        return apply_filters( 'vitaepro_cv_html', $html, $user_id, $categories, $cv_user, $records_by_category );
     }
     /**
      * Render the public CV page.
      *
-     * @param int $user_id User ID.
+     * @param int $user_id            User ID that will be rendered.
+     * @param int $requested_user_id  User ID requested via the URL.
      *
      * @return void
      */
-    public static function render_public_cv_page( $user_id = 0 ) {
+    public static function render_public_cv_page( $user_id = 0, $requested_user_id = 0 ) {
         $user_id = absint( $user_id );
+        $requested_user_id = absint( $requested_user_id );
 
         if ( $user_id <= 0 ) {
             self::render_not_found();
@@ -163,7 +246,11 @@ class VitaePro_PDF {
             return;
         }
 
-        $pdf_url = self::get_public_pdf_url( $user_id );
+        if ( $requested_user_id > 0 && $requested_user_id === $user_id ) {
+            $pdf_url = self::get_public_pdf_url( $requested_user_id );
+        } else {
+            $pdf_url = self::get_public_pdf_url( 0 );
+        }
 
         status_header( 200 );
         nocache_headers();
@@ -254,7 +341,7 @@ class VitaePro_PDF {
             'vitaepro_cv'
         );
 
-        $user_id = absint( $atts['user'] );
+        $user_id = self::resolve_user_id( absint( $atts['user'] ) );
 
         if ( $user_id <= 0 ) {
             return '';
@@ -285,13 +372,11 @@ class VitaePro_PDF {
     }
 
     /**
-     * Prepare categories with user records.
-     *
-     * @param int $user_id User ID.
+     * Retrieve all categories sorted by their database ID.
      *
      * @return array
      */
-    private static function get_categories_with_records( $user_id ) {
+    public static function get_all_categories() {
         global $wpdb;
 
         $table_categories = $wpdb->prefix . 'vitaepro_categories';
@@ -301,8 +386,7 @@ class VitaePro_PDF {
             return array();
         }
 
-        $record_controller = new VitaePro_Record_Controller();
-        $prepared          = array();
+        $prepared = array();
 
         foreach ( $categories as $category ) {
             if ( ! isset( $category->id ) ) {
@@ -315,41 +399,95 @@ class VitaePro_PDF {
                 continue;
             }
 
-            $columns = self::prepare_category_columns( $category );
-            $records = $record_controller->get_records_by_user_and_category( $user_id, $category_id );
-
-            $records_output = array();
-
-            if ( ! empty( $records ) ) {
-                foreach ( $records as $record ) {
-                    $record_data = array();
-
-                    foreach ( $columns as $column ) {
-                        $key  = $column['key'];
-                        $type = $column['type'];
-                        $raw  = isset( $record->data[ $key ] ) ? $record->data[ $key ] : '';
-
-                        $record_data[ $key ] = self::prepare_value_for_display( $raw, $type );
-                    }
-
-                    $records_output[] = array(
-                        'id'         => isset( $record->id ) ? (int) $record->id : 0,
-                        'created_at' => isset( $record->created_at ) ? $record->created_at : '',
-                        'data'       => $record_data,
-                    );
-                }
-            }
-
             $prepared[] = array(
                 'id'          => $category_id,
                 'name'        => isset( $category->name ) ? sanitize_text_field( $category->name ) : '',
                 'description' => isset( $category->description ) ? sanitize_textarea_field( $category->description ) : '',
-                'columns'     => $columns,
-                'records'     => $records_output,
+                'columns'     => self::prepare_category_columns( $category ),
             );
         }
 
         return $prepared;
+    }
+
+    /**
+     * Retrieve records belonging to a category, optionally filtering by user.
+     *
+     * @param int   $category_id Category ID.
+     * @param int   $user_id     User ID. Optional.
+     * @param array $columns     Category columns. Optional.
+     *
+     * @return array
+     */
+    public static function get_records_by_category( $category_id, $user_id = 0, $columns = array() ) {
+        $category_id = absint( $category_id );
+        $user_id     = absint( $user_id );
+
+        if ( $category_id <= 0 ) {
+            return array();
+        }
+
+        $record_controller = new VitaePro_Record_Controller();
+
+        if ( $user_id > 0 ) {
+            $records = $record_controller->get_records_by_user_and_category( $user_id, $category_id );
+        } else {
+            $records = $record_controller->get_records_by_category( $category_id );
+        }
+
+        if ( empty( $columns ) ) {
+            $columns = array();
+            $all_categories = self::get_all_categories();
+
+            foreach ( $all_categories as $category ) {
+                if ( isset( $category['id'] ) && (int) $category['id'] === $category_id ) {
+                    $columns = isset( $category['columns'] ) && is_array( $category['columns'] ) ? $category['columns'] : array();
+                    break;
+                }
+            }
+        }
+
+        $columns = is_array( $columns ) ? $columns : array();
+        $output  = array();
+
+        if ( empty( $records ) ) {
+            return $output;
+        }
+
+        foreach ( $records as $record ) {
+            $record_data = array();
+            $record_arr  = isset( $record->data ) && is_array( $record->data ) ? $record->data : array();
+
+            if ( ! empty( $columns ) ) {
+                foreach ( $columns as $column ) {
+                    $key = isset( $column['key'] ) ? $column['key'] : '';
+
+                    if ( '' === $key ) {
+                        continue;
+                    }
+
+                    $type = isset( $column['type'] ) ? $column['type'] : 'text';
+                    $raw  = isset( $record_arr[ $key ] ) ? $record_arr[ $key ] : '';
+
+                    $record_data[ $key ] = self::prepare_value_for_display( $raw, $type );
+                }
+            } else {
+                foreach ( $record_arr as $raw_key => $raw_value ) {
+                    $safe_key                 = is_string( $raw_key ) ? $raw_key : sanitize_key( (string) $raw_key );
+                    $record_data[ $safe_key ] = self::prepare_value_for_display( $raw_value, 'text' );
+                }
+            }
+
+            $output[] = array(
+                'id'         => isset( $record->id ) ? (int) $record->id : 0,
+                'user_id'    => isset( $record->user_id ) ? (int) $record->user_id : 0,
+                'created_at' => isset( $record->created_at ) ? sanitize_text_field( $record->created_at ) : '',
+                'updated_at' => isset( $record->updated_at ) ? sanitize_text_field( $record->updated_at ) : '',
+                'data'       => $record_data,
+            );
+        }
+
+        return $output;
     }
     /**
      * Prepare columns for display.
@@ -459,7 +597,7 @@ class VitaePro_PDF {
         $user_id = absint( $user_id );
 
         if ( $user_id <= 0 ) {
-            return home_url( '/' );
+            return home_url( user_trailingslashit( 'cv/pdf' ) );
         }
 
         $path = sprintf( 'cv/%d/pdf', $user_id );
