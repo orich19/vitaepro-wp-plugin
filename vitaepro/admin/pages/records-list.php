@@ -98,8 +98,7 @@ global $wpdb;
 $records          = array();
 $table_records    = $wpdb->prefix . 'vitaepro_records';
 $table_categories = $wpdb->prefix . 'vitaepro_categories';
-$dompdf_autoload  = dirname( dirname( __DIR__ ) ) . '/vendor/dompdf/autoload.inc.php';
-$has_dompdf       = file_exists( $dompdf_autoload );
+$has_dompdf       = function_exists( 'vitaepro_has_pdf_support' ) ? vitaepro_has_pdf_support() : false;
 
 if ( $current_category_id > 0 ) {
     $records = $wpdb->get_results(

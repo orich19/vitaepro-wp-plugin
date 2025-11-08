@@ -294,10 +294,7 @@ class VitaePro_PDF {
 
         if ( ! self::maybe_include_autoloader() || ! class_exists( '\\Dompdf\\Dompdf' ) ) {
             wp_die(
-                sprintf(
-                    '<p>%s</p><p><code>composer require dompdf/dompdf</code></p>',
-                    esc_html__( 'No se encontró Dompdf. Ejecuta el comando indicado en la carpeta del plugin para instalar las dependencias.', 'vitaepro' )
-                )
+                esc_html__( 'No se encontró Dompdf. Sube la carpeta /vendor/ completa al plugin para habilitar la exportación.', 'vitaepro' )
             );
         }
 
@@ -314,6 +311,7 @@ class VitaePro_PDF {
         $options = new Options();
         $options->set( 'isRemoteEnabled', true );
         $options->setDefaultPaperSize( 'a4' );
+        $options->setChroot( self::get_plugin_dir() );
 
         $dompdf = new Dompdf( $options );
         $dompdf->loadHtml( $document, 'UTF-8' );
@@ -321,6 +319,10 @@ class VitaePro_PDF {
         $dompdf->render();
 
         $filename = sprintf( 'cv-%s-%d.pdf', sanitize_title( $user->display_name ? $user->display_name : $user->user_login ), $user_id );
+
+        while ( ob_get_level() > 0 ) {
+            ob_end_clean();
+        }
 
         $dompdf->stream( $filename, array( 'Attachment' => 1 ) );
         exit;
@@ -644,28 +646,13 @@ class VitaePro_PDF {
             return $loaded;
         }
 
-        if ( class_exists( '\\Dompdf\\Dompdf' ) ) {
-            $loaded = true;
+        if ( function_exists( 'vitaepro_pdf_dependencies_loaded' ) ) {
+            $loaded = vitaepro_pdf_dependencies_loaded();
+
             return $loaded;
         }
 
-        $autoload_candidates = array(
-            self::get_plugin_dir() . 'vendor/autoload.php',
-            self::get_plugin_dir() . 'vendor/dompdf/autoload.inc.php',
-        );
-
-        foreach ( $autoload_candidates as $candidate ) {
-            if ( file_exists( $candidate ) ) {
-                require_once $candidate;
-            }
-
-            if ( class_exists( '\\Dompdf\\Dompdf' ) ) {
-                $loaded = true;
-                return $loaded;
-            }
-        }
-
-        $loaded = false;
+        $loaded = class_exists( '\\Dompdf\\Dompdf' ) && class_exists( '\\Dompdf\\Options' );
 
         return $loaded;
     }
