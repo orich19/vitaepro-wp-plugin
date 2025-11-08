@@ -20,6 +20,10 @@ class VitaePro {
         // Cargar archivos base
         $this->load_dependencies();
 
+        if ( class_exists( 'VitaePro_PDF' ) ) {
+            VitaePro_PDF::init();
+        }
+
         // Hooks iniciales (puedes agregar más luego)
         add_action('init', [$this, 'init_plugin']);
 
@@ -35,6 +39,7 @@ class VitaePro {
         require_once plugin_dir_path(__FILE__) . 'includes/class-record-controller.php';
         require_once plugin_dir_path(__FILE__) . 'includes/class-category-controller.php';
         require_once plugin_dir_path(__FILE__) . 'includes/helpers/date-calculator.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/class-vitaepro-pdf.php';
     }
 
     public function init_plugin() {

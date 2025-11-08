@@ -1,0 +1,154 @@
+/* VitaePro CV Styles */
+:root {
+    --vitaepro-font: 'Helvetica Neue', Arial, sans-serif;
+    --vitaepro-text: #222222;
+    --vitaepro-muted: #555555;
+    --vitaepro-border: #dddddd;
+    --vitaepro-accent: #1f2933;
+    --vitaepro-background: #ffffff;
+}
+
+body.vitaepro-cv-page {
+    font-family: var(--vitaepro-font);
+    color: var(--vitaepro-text);
+    background: #f5f5f5;
+    margin: 0;
+    padding: 30px;
+}
+
+.vitaepro-cv-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--vitaepro-background);
+    padding: 40px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+}
+
+.vitaepro-cv-actions {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.vitaepro-button {
+    display: inline-block;
+    background: var(--vitaepro-accent);
+    color: #ffffff;
+    padding: 10px 18px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.vitaepro-button:hover,
+.vitaepro-button:focus {
+    background: #111827;
+    color: #ffffff;
+}
+
+.vitaepro-cv {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.vitaepro-cv__header {
+    border-bottom: 2px solid var(--vitaepro-border);
+    padding-bottom: 15px;
+    margin-bottom: 30px;
+}
+
+.vitaepro-cv__title {
+    margin: 0 0 10px;
+    font-size: 28px;
+    letter-spacing: 0.5px;
+}
+
+.vitaepro-cv__contact {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.vitaepro-cv__contact li {
+    font-size: 13px;
+    color: var(--vitaepro-muted);
+}
+
+.vitaepro-cv__contact strong {
+    color: var(--vitaepro-text);
+}
+
+.vitaepro-cv__summary {
+    margin-top: 15px;
+    color: var(--vitaepro-muted);
+}
+
+.vitaepro-cv__section {
+    margin-bottom: 32px;
+}
+
+.vitaepro-cv__section-title {
+    font-size: 20px;
+    margin: 0 0 8px;
+    color: var(--vitaepro-accent);
+    border-left: 4px solid var(--vitaepro-accent);
+    padding-left: 10px;
+}
+
+.vitaepro-cv__section-description {
+    margin: 0 0 16px;
+    color: var(--vitaepro-muted);
+}
+
+.vitaepro-cv__table-wrapper {
+    overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid var(--vitaepro-border);
+}
+
+.vitaepro-cv__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.vitaepro-cv__table thead th {
+    background: #f0f2f5;
+    color: var(--vitaepro-text);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--vitaepro-border);
+}
+
+.vitaepro-cv__table tbody td {
+    padding: 12px;
+    border-bottom: 1px solid var(--vitaepro-border);
+    vertical-align: top;
+}
+
+.vitaepro-cv__table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.vitaepro-cv-empty {
+    color: var(--vitaepro-muted);
+    font-style: italic;
+}
+
+@media print {
+    body.vitaepro-cv-page {
+        background: #ffffff;
+        padding: 0;
+    }
+
+    .vitaepro-cv-wrapper {
+        box-shadow: none;
+        padding: 20px;
+    }
+
+    .vitaepro-cv-actions {
+        display: none;
+    }
+}
