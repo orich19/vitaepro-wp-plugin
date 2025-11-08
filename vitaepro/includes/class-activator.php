@@ -32,12 +32,14 @@ class VitaePro_Activator {
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             name varchar(255) NOT NULL,
             slug varchar(255) NOT NULL,
+            table_type varchar(191) NOT NULL,
             description text NULL,
             schema_json longtext NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
-            UNIQUE KEY slug (slug)
+            UNIQUE KEY slug (slug),
+            KEY table_type (table_type)
         ) ENGINE=InnoDB {$charset_collate};";
 
         $records_sql = "CREATE TABLE {$records_table} (
