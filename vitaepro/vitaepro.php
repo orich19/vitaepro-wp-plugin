@@ -30,10 +30,11 @@ class VitaePro {
     }
 
     public function load_dependencies() {
+        require_once plugin_dir_path(__FILE__) . 'includes/helpers/compat.php';
         require_once plugin_dir_path(__FILE__) . 'includes/class-table-types.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/class-record-controller.php';
         require_once plugin_dir_path(__FILE__) . 'includes/class-category-controller.php';
         require_once plugin_dir_path(__FILE__) . 'includes/helpers/date-calculator.php';
-        require_once plugin_dir_path(__FILE__) . 'includes/class-record-controller.php';
     }
 
     public function init_plugin() {
