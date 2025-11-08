@@ -98,6 +98,8 @@ global $wpdb;
 $records          = array();
 $table_records    = $wpdb->prefix . 'vitaepro_records';
 $table_categories = $wpdb->prefix . 'vitaepro_categories';
+$dompdf_autoload  = dirname( dirname( __DIR__ ) ) . '/vendor/dompdf/autoload.inc.php';
+$has_dompdf       = file_exists( $dompdf_autoload );
 
 if ( $current_category_id > 0 ) {
     $records = $wpdb->get_results(
@@ -132,12 +134,15 @@ $create_url = add_query_arg( $create_args, admin_url( 'admin.php' ) );
 ?>
 <div class="wrap">
     <h1><?php esc_html_e( 'Registros', 'vitaepro' ); ?></h1>
+    <a href="<?php echo admin_url('admin.php?page=vitaepro-export-cv'); ?>" class="button button-primary">
+        Exportar CV en PDF
+    </a>
 
-    <p>
-        <a href="<?php echo esc_url( add_query_arg( array( 'page' => 'vitaepro-export-cv' ), admin_url( 'admin.php' ) ) ); ?>" class="button button-primary">
-            <?php esc_html_e( 'Exportar CV completo', 'vitaepro' ); ?>
-        </a>
-    </p>
+    <?php if ( ! $has_dompdf ) : ?>
+        <div class="notice notice-error" style="margin-top: 15px;">
+            <p>No se encontró Dompdf. Sube la carpeta /vendor/dompdf/ al plugin para habilitar la exportación.</p>
+        </div>
+    <?php endif; ?>
 
     <?php if ( $has_forced_category && $current_category_id > 0 ) : ?>
         <h2 class="wp-heading-inline"><?php echo esc_html( $forced_category_name ); ?></h2>

@@ -644,14 +644,28 @@ class VitaePro_PDF {
             return $loaded;
         }
 
-        $autoload = self::get_plugin_dir() . 'vendor/autoload.php';
-
-        if ( file_exists( $autoload ) ) {
-            require_once $autoload;
+        if ( class_exists( '\\Dompdf\\Dompdf' ) ) {
             $loaded = true;
-        } else {
-            $loaded = false;
+            return $loaded;
         }
+
+        $autoload_candidates = array(
+            self::get_plugin_dir() . 'vendor/autoload.php',
+            self::get_plugin_dir() . 'vendor/dompdf/autoload.inc.php',
+        );
+
+        foreach ( $autoload_candidates as $candidate ) {
+            if ( file_exists( $candidate ) ) {
+                require_once $candidate;
+            }
+
+            if ( class_exists( '\\Dompdf\\Dompdf' ) ) {
+                $loaded = true;
+                return $loaded;
+            }
+        }
+
+        $loaded = false;
 
         return $loaded;
     }
