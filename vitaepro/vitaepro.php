@@ -30,9 +30,8 @@ class VitaePro {
     }
 
     public function load_dependencies() {
-        // Aquí cargarás archivos como category-manager, calculator, etc
-        // Ejemplo:
-        // require_once plugin_dir_path(__FILE__) . 'includes/helpers/date-calculator.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/class-table-types.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/class-category-controller.php';
     }
 
     public function init_plugin() {
