@@ -1,0 +1,151 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+if ( ! current_user_can( 'manage_options' ) ) {
+    wp_die( esc_html__( 'No tienes permisos suficientes para acceder a esta página.', 'vitaepro' ) );
+}
+
+$record_controller   = new VitaePro_Record_Controller();
+$category_controller = new VitaePro_Category_Controller();
+
+$category_id = isset( $_REQUEST['category_id'] ) ? absint( $_REQUEST['category_id'] ) : 0;
+
+if ( $category_id <= 0 ) {
+    wp_die( esc_html__( 'Debes seleccionar una categoría válida para crear un registro.', 'vitaepro' ) );
+}
+
+$category = $category_controller->get_category( $category_id );
+
+if ( ! $category ) {
+    wp_die( esc_html__( 'La categoría seleccionada no existe.', 'vitaepro' ) );
+}
+
+$schema  = json_decode( $category->schema_json, true );
+$columns = isset( $schema['columns'] ) && is_array( $schema['columns'] ) ? $schema['columns'] : array();
+$values  = array();
+
+foreach ( $columns as $key => $definition ) {
+    $values[ $key ] = '';
+}
+
+$notice_class = '';
+$notice_text  = '';
+
+if ( isset( $_POST['vitaepro_record_action'] ) && 'create' === $_POST['vitaepro_record_action'] ) {
+    check_admin_referer( 'vitaepro_create_record', 'vitaepro_record_nonce' );
+
+    $record_data = array();
+
+    foreach ( $columns as $key => $definition ) {
+        $type = isset( $definition['type'] ) ? $definition['type'] : 'text';
+
+        switch ( $type ) {
+            case 'textarea':
+                $value = isset( $_POST[ $key ] ) ? sanitize_textarea_field( wp_unslash( $_POST[ $key ] ) ) : '';
+                break;
+            case 'number':
+                $value = isset( $_POST[ $key ] ) && '' !== $_POST[ $key ] ? floatval( wp_unslash( $_POST[ $key ] ) ) : '';
+                break;
+            case 'date':
+                $value = isset( $_POST[ $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) : '';
+                break;
+            case 'checkbox':
+                $value = isset( $_POST[ $key ] ) ? 1 : 0;
+                break;
+            case 'text':
+            default:
+                $value = isset( $_POST[ $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) : '';
+                break;
+        }
+
+        $record_data[ $key ] = $value;
+        $values[ $key ]      = $value;
+    }
+
+    $current_user_id = get_current_user_id();
+
+    $result = $record_controller->create_record( $category_id, $current_user_id, $record_data );
+
+    if ( is_wp_error( $result ) ) {
+        $notice_class = 'notice notice-error';
+        $notice_text  = $result->get_error_message();
+    } else {
+        $redirect_url = add_query_arg(
+            array(
+                'page'             => 'vitaepro-records-list',
+                'vitaepro_message' => 'created',
+            ),
+            admin_url( 'admin.php' )
+        );
+
+        wp_safe_redirect( $redirect_url );
+        exit;
+    }
+}
+
+?>
+<div class="wrap">
+    <h1><?php esc_html_e( 'Crear Registro', 'vitaepro' ); ?></h1>
+    <p>
+        <a href="<?php echo esc_url( admin_url( 'admin.php?page=vitaepro-records-list' ) ); ?>">
+            <?php esc_html_e( '← Volver a Registros', 'vitaepro' ); ?>
+        </a>
+    </p>
+
+    <?php if ( ! empty( $notice_text ) ) : ?>
+        <div class="<?php echo esc_attr( $notice_class ); ?>">
+            <p><?php echo esc_html( $notice_text ); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <form method="post" action="<?php echo esc_url( add_query_arg( array( 'page' => 'vitaepro-records-create', 'category_id' => $category_id ), admin_url( 'admin.php' ) ) ); ?>">
+        <?php wp_nonce_field( 'vitaepro_create_record', 'vitaepro_record_nonce' ); ?>
+        <input type="hidden" name="vitaepro_record_action" value="create" />
+        <input type="hidden" name="category_id" value="<?php echo esc_attr( $category_id ); ?>" />
+
+        <h2><?php echo esc_html( $category->name ); ?></h2>
+
+        <table class="form-table" role="presentation">
+            <tbody>
+                <?php foreach ( $columns as $key => $definition ) : ?>
+                    <?php
+                    $label       = isset( $definition['label'] ) ? $definition['label'] : $key;
+                    $type        = isset( $definition['type'] ) ? $definition['type'] : 'text';
+                    $description = isset( $definition['description'] ) ? $definition['description'] : '';
+                    $value       = isset( $values[ $key ] ) ? $values[ $key ] : '';
+                    $readonly    = in_array( $key, array( 'anios', 'meses', 'dias' ), true );
+                    ?>
+                    <tr>
+                        <th scope="row">
+                            <label for="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></label>
+                        </th>
+                        <td>
+                            <?php if ( 'textarea' === $type ) : ?>
+                                <textarea name="<?php echo esc_attr( $key ); ?>" id="<?php echo esc_attr( $key ); ?>" rows="5" cols="50" <?php readonly( $readonly ); ?>><?php echo esc_textarea( $value ); ?></textarea>
+                            <?php elseif ( 'number' === $type ) : ?>
+                                <input type="number" name="<?php echo esc_attr( $key ); ?>" id="<?php echo esc_attr( $key ); ?>" value="<?php echo esc_attr( $value ); ?>" <?php readonly( $readonly ); ?> />
+                            <?php elseif ( 'date' === $type ) : ?>
+                                <input type="date" name="<?php echo esc_attr( $key ); ?>" id="<?php echo esc_attr( $key ); ?>" value="<?php echo esc_attr( $value ); ?>" />
+                            <?php elseif ( 'checkbox' === $type ) : ?>
+                                <label>
+                                    <input type="checkbox" name="<?php echo esc_attr( $key ); ?>" value="1" <?php checked( ! empty( $value ) ); ?> />
+                                    <?php esc_html_e( 'Sí', 'vitaepro' ); ?>
+                                </label>
+                            <?php else : ?>
+                                <input type="text" name="<?php echo esc_attr( $key ); ?>" id="<?php echo esc_attr( $key ); ?>" class="regular-text" value="<?php echo esc_attr( $value ); ?>" <?php readonly( $readonly ); ?> />
+                            <?php endif; ?>
+
+                            <?php if ( ! empty( $description ) ) : ?>
+                                <p class="description"><?php echo esc_html( $description ); ?></p>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <?php submit_button( __( 'Guardar registro', 'vitaepro' ) ); ?>
+    </form>
+</div>

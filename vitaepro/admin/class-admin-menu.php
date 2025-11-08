@@ -34,6 +34,36 @@ class VitaePro_Admin_Menu {
             'vitaepro-categories-create',
             [self::class, 'render_categories_create']
         );
+
+        add_submenu_page(
+            'vitaepro-dashboard',
+            __('Registros', 'vitaepro'),
+            __('Registros', 'vitaepro'),
+            'manage_options',
+            'vitaepro-records-list',
+            [self::class, 'render_records_list']
+        );
+
+        add_submenu_page(
+            'vitaepro-dashboard',
+            __('Crear Registro', 'vitaepro'),
+            __('Crear Registro', 'vitaepro'),
+            'manage_options',
+            'vitaepro-records-create',
+            [self::class, 'render_records_create']
+        );
+
+        add_submenu_page(
+            'vitaepro-dashboard',
+            __('Editar Registro', 'vitaepro'),
+            __('Editar Registro', 'vitaepro'),
+            'manage_options',
+            'vitaepro-records-edit',
+            [self::class, 'render_records_edit']
+        );
+
+        remove_submenu_page('vitaepro-dashboard', 'vitaepro-records-create');
+        remove_submenu_page('vitaepro-dashboard', 'vitaepro-records-edit');
     }
 
     public static function render_dashboard() {
@@ -46,6 +76,18 @@ class VitaePro_Admin_Menu {
 
     public static function render_categories_create() {
         self::load_view('categories-create');
+    }
+
+    public static function render_records_list() {
+        self::load_view('records-list');
+    }
+
+    public static function render_records_create() {
+        self::load_view('records-create');
+    }
+
+    public static function render_records_edit() {
+        self::load_view('records-edit');
     }
 
     private static function load_view($view) {
