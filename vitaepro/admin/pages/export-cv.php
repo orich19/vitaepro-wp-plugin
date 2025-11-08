@@ -10,23 +10,12 @@ if ( ! current_user_can( 'manage_options' ) ) {
     wp_die( esc_html__( 'No tienes permisos suficientes para acceder a esta página.', 'vitaepro' ) );
 }
 
-$plugin_dir      = dirname( dirname( __DIR__ ) );
-$dompdf_autoload = $plugin_dir . '/vendor/autoload.php';
+$has_pdf_support = function_exists( 'vitaepro_pdf_dependencies_loaded' ) ? vitaepro_pdf_dependencies_loaded() : false;
 
-if ( ! file_exists( $dompdf_autoload ) ) {
+if ( ! $has_pdf_support ) {
     echo '<div class="wrap">';
     echo '<h1>Exportar CV</h1>';
     echo '<div class="notice notice-error"><p>No se encontró Dompdf. Sube la carpeta /vendor/ completa al plugin para habilitar la exportación.</p></div>';
-    echo '</div>';
-    return;
-}
-
-require_once $dompdf_autoload;
-
-if ( ! class_exists( '\\Dompdf\\Dompdf' ) ) {
-    echo '<div class="wrap">';
-    echo '<h1>Exportar CV</h1>';
-    echo '<div class="notice notice-error"><p>El autoloader se encontró, pero la clase Dompdf no existe. Verifica que /vendor esté completo.</p></div>';
     echo '</div>';
     return;
 }
