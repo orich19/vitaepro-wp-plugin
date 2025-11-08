@@ -12,6 +12,12 @@ $category_controller = new VitaePro_Category_Controller();
 $notice_class        = '';
 $notice_text         = '';
 
+$forced_category_id   = isset( $forced_category_id ) ? absint( $forced_category_id ) : 0;
+$forced_category_name = isset( $forced_category_name ) ? sanitize_text_field( $forced_category_name ) : '';
+$current_page_slug    = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : 'vitaepro-records-list';
+$has_forced_category  = $forced_category_id > 0;
+$current_category_id  = $has_forced_category ? $forced_category_id : ( isset( $_GET['category_id'] ) ? absint( wp_unslash( $_GET['category_id'] ) ) : 0 );
+
 if ( isset( $_GET['action'], $_GET['id'] ) ) {
     $action    = sanitize_key( wp_unslash( $_GET['action'] ) );
     $record_id = absint( wp_unslash( $_GET['id'] ) );
@@ -29,13 +35,16 @@ if ( isset( $_GET['action'], $_GET['id'] ) ) {
                 $notice_text = __( 'Ocurrió un error al eliminar el registro.', 'vitaepro' );
             }
         } else {
-            $redirect_url = add_query_arg(
-                array(
-                    'page'             => 'vitaepro-records-list',
-                    'vitaepro_message' => 'deleted',
-                ),
-                admin_url( 'admin.php' )
+            $redirect_args = array(
+                'page'             => $current_page_slug,
+                'vitaepro_message' => 'deleted',
             );
+
+            if ( ! $has_forced_category && $current_category_id > 0 ) {
+                $redirect_args['category_id'] = $current_category_id;
+            }
+
+            $redirect_url = add_query_arg( $redirect_args, admin_url( 'admin.php' ) );
 
             wp_safe_redirect( $redirect_url );
             exit;
@@ -64,56 +73,111 @@ $categories     = $category_controller->get_categories();
 $categories     = is_array( $categories ) ? $categories : array();
 $categories_map = array();
 $columns_by_cat = array();
-$all_records    = array();
 
 if ( ! empty( $categories ) ) {
     foreach ( $categories as $category ) {
-        $categories_map[ $category->id ] = $category;
+        if ( ! isset( $category->id ) ) {
+            continue;
+        }
 
-        $schema = json_decode( $category->schema_json, true );
-        $columns_by_cat[ $category->id ] = isset( $schema['columns'] ) && is_array( $schema['columns'] ) ? $schema['columns'] : array();
+        $category_id = (int) $category->id;
 
-        $records = $record_controller->get_records_by_category( $category->id );
+        $categories_map[ $category_id ] = $category;
 
-        if ( ! empty( $records ) ) {
-            foreach ( $records as $record ) {
-                $all_records[] = $record;
-            }
+        $schema                       = json_decode( $category->schema_json, true );
+        $columns_by_cat[ $category_id ] = isset( $schema['columns'] ) && is_array( $schema['columns'] ) ? $schema['columns'] : array();
+    }
+}
+
+if ( $has_forced_category && '' === $forced_category_name && isset( $categories_map[ $forced_category_id ] ) ) {
+    $forced_category_name = sanitize_text_field( $categories_map[ $forced_category_id ]->name );
+}
+
+global $wpdb;
+
+$records          = array();
+$table_records    = $wpdb->prefix . 'vitaepro_records';
+$table_categories = $wpdb->prefix . 'vitaepro_categories';
+
+if ( $current_category_id > 0 ) {
+    $records = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT r.*, c.name AS category_name FROM {$table_records} r LEFT JOIN {$table_categories} c ON r.category_id = c.id WHERE r.category_id = %d ORDER BY r.id DESC",
+            $current_category_id
+        )
+    );
+}
+
+if ( ! empty( $records ) ) {
+    foreach ( $records as $record ) {
+        $decoded      = isset( $record->data_json ) ? json_decode( $record->data_json, true ) : array();
+        $record->data = is_array( $decoded ) ? $decoded : array();
+
+        if ( empty( $record->category_name ) && isset( $categories_map[ $record->category_id ] ) ) {
+            $record->category_name = $categories_map[ $record->category_id ]->name;
         }
     }
 }
 
-usort(
-    $all_records,
-    function ( $a, $b ) {
-        return strcmp( (string) $b->created_at, (string) $a->created_at );
-    }
+$create_args = array(
+    'page' => 'vitaepro-records-create',
 );
+
+if ( $current_category_id > 0 ) {
+    $create_args['category_id'] = $current_category_id;
+}
+
+$create_url = add_query_arg( $create_args, admin_url( 'admin.php' ) );
 
 ?>
 <div class="wrap">
     <h1><?php esc_html_e( 'Registros', 'vitaepro' ); ?></h1>
 
-    <?php if ( ! empty( $categories ) ) : ?>
-        <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" style="margin-bottom: 20px;">
-            <input type="hidden" name="page" value="vitaepro-records-create" />
-            <label for="vitaepro-record-category" style="margin-right: 10px;">
-                <?php esc_html_e( 'Selecciona una categoría para crear un registro:', 'vitaepro' ); ?>
-            </label>
-            <select name="category_id" id="vitaepro-record-category" required>
-                <option value=""><?php esc_html_e( 'Selecciona una categoría', 'vitaepro' ); ?></option>
-                <?php foreach ( $categories as $category ) : ?>
-                    <option value="<?php echo esc_attr( $category->id ); ?>">
-                        <?php echo esc_html( $category->name ); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <?php submit_button( __( 'Crear registro', 'vitaepro' ), 'primary', 'submit', false ); ?>
-        </form>
+    <?php if ( $has_forced_category && $current_category_id > 0 ) : ?>
+        <h2 class="wp-heading-inline"><?php echo esc_html( $forced_category_name ); ?></h2>
+        <p>
+            <a class="button button-primary" href="<?php echo esc_url( $create_url ); ?>">
+                <?php esc_html_e( 'Crear registro', 'vitaepro' ); ?>
+            </a>
+        </p>
     <?php else : ?>
-        <div class="notice notice-warning" style="margin-bottom: 20px;">
-            <p><?php esc_html_e( 'Debes crear categorías antes de añadir registros.', 'vitaepro' ); ?></p>
-        </div>
+        <?php if ( ! empty( $categories ) ) : ?>
+            <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" style="margin-bottom: 20px;">
+                <input type="hidden" name="page" value="<?php echo esc_attr( $current_page_slug ); ?>" />
+                <label for="vitaepro-filter-category" style="margin-right: 10px;">
+                    <?php esc_html_e( 'Selecciona una categoría para ver los registros:', 'vitaepro' ); ?>
+                </label>
+                <select name="category_id" id="vitaepro-filter-category" required>
+                    <option value=""><?php esc_html_e( 'Selecciona una categoría', 'vitaepro' ); ?></option>
+                    <?php foreach ( $categories as $category ) : ?>
+                        <option value="<?php echo esc_attr( $category->id ); ?>" <?php selected( $current_category_id, (int) $category->id ); ?>>
+                            <?php echo esc_html( $category->name ); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php submit_button( __( 'Ver registros', 'vitaepro' ), 'secondary', 'submit', false ); ?>
+            </form>
+
+            <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" style="margin-bottom: 20px;">
+                <input type="hidden" name="page" value="vitaepro-records-create" />
+                <label for="vitaepro-record-category" style="margin-right: 10px;">
+                    <?php esc_html_e( 'Selecciona una categoría para crear un registro:', 'vitaepro' ); ?>
+                </label>
+                <select name="category_id" id="vitaepro-record-category" required>
+                    <option value=""><?php esc_html_e( 'Selecciona una categoría', 'vitaepro' ); ?></option>
+                    <?php foreach ( $categories as $category ) : ?>
+                        <option value="<?php echo esc_attr( $category->id ); ?>">
+                            <?php echo esc_html( $category->name ); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php submit_button( __( 'Crear registro', 'vitaepro' ), 'primary', 'submit', false ); ?>
+            </form>
+        <?php else : ?>
+            <div class="notice notice-warning" style="margin-bottom: 20px;">
+                <p><?php esc_html_e( 'Debes crear categorías antes de añadir registros.', 'vitaepro' ); ?></p>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 
     <?php if ( ! empty( $notice_text ) ) : ?>
@@ -133,16 +197,21 @@ usort(
             </tr>
         </thead>
         <tbody>
-            <?php if ( empty( $all_records ) ) : ?>
+            <?php if ( $current_category_id <= 0 ) : ?>
+                <tr>
+                    <td colspan="5"><?php esc_html_e( 'Selecciona una categoría para ver los registros.', 'vitaepro' ); ?></td>
+                </tr>
+            <?php elseif ( empty( $records ) ) : ?>
                 <tr>
                     <td colspan="5"><?php esc_html_e( 'No hay registros disponibles actualmente.', 'vitaepro' ); ?></td>
                 </tr>
             <?php else : ?>
-                <?php foreach ( $all_records as $record ) : ?>
+                <?php foreach ( $records as $record ) : ?>
                     <?php
-                    $category_name  = isset( $categories_map[ $record->category_id ] ) ? $categories_map[ $record->category_id ]->name : '';
+                    $category_name  = isset( $record->category_name ) ? $record->category_name : '';
+                    $category_name  = $category_name ? $category_name : ( isset( $categories_map[ $record->category_id ] ) ? $categories_map[ $record->category_id ]->name : '' );
                     $columns        = isset( $columns_by_cat[ $record->category_id ] ) ? $columns_by_cat[ $record->category_id ] : array();
-                    $record_data    = is_object( $record ) && isset( $record->data ) && is_array( $record->data ) ? $record->data : array();
+                    $record_data    = isset( $record->data ) && is_array( $record->data ) ? $record->data : array();
                     $primary_values = array();
 
                     if ( ! empty( $columns ) && ! empty( $record_data ) ) {
@@ -152,27 +221,36 @@ usort(
                         foreach ( $keys as $key ) {
                             $label = isset( $columns[ $key ]['label'] ) ? $columns[ $key ]['label'] : $key;
                             $value = isset( $record_data[ $key ] ) ? $record_data[ $key ] : '';
-                            $primary_values[] = sprintf( '%s: %s', esc_html( $label ), esc_html( (string) $value ) );
+                            $primary_values[] = array(
+                                'label' => $label,
+                                'value' => $value,
+                            );
                         }
                     }
 
-                    $edit_url = add_query_arg(
-                        array(
-                            'page' => 'vitaepro-records-edit',
-                            'id'   => $record->id,
-                        ),
-                        admin_url( 'admin.php' )
+                    $edit_args = array(
+                        'page' => 'vitaepro-records-edit',
+                        'id'   => $record->id,
                     );
 
+                    if ( $current_category_id > 0 ) {
+                        $edit_args['category_id'] = $current_category_id;
+                    }
+
+                    $edit_url = add_query_arg( $edit_args, admin_url( 'admin.php' ) );
+
+                    $delete_args = array(
+                        'page'   => $current_page_slug,
+                        'action' => 'delete',
+                        'id'     => $record->id,
+                    );
+
+                    if ( ! $has_forced_category && $current_category_id > 0 ) {
+                        $delete_args['category_id'] = $current_category_id;
+                    }
+
                     $delete_url = wp_nonce_url(
-                        add_query_arg(
-                            array(
-                                'page'   => 'vitaepro-records-list',
-                                'action' => 'delete',
-                                'id'     => $record->id,
-                            ),
-                            admin_url( 'admin.php' )
-                        ),
+                        add_query_arg( $delete_args, admin_url( 'admin.php' ) ),
                         'vitaepro_delete_record_' . $record->id
                     );
                     ?>
@@ -181,8 +259,8 @@ usort(
                         <td><?php echo esc_html( $category_name ); ?></td>
                         <td>
                             <?php if ( ! empty( $primary_values ) ) : ?>
-                                <?php foreach ( $primary_values as $value ) : ?>
-                                    <div><?php echo esc_html( $value ); ?></div>
+                                <?php foreach ( $primary_values as $primary_value ) : ?>
+                                    <div><?php echo esc_html( sprintf( '%s: %s', $primary_value['label'], (string) $primary_value['value'] ) ); ?></div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </td>
