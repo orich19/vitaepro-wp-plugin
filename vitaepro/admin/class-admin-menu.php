@@ -101,11 +101,11 @@ class VitaePro_Admin_Menu {
 
         add_submenu_page(
             null,
-            __('Exportar CV', 'vitaepro'),
+            'Exportar CV',
             '',
             'manage_options',
             'vitaepro-export-cv',
-            [self::class, 'render_export_cv']
+            ['VitaePro_Admin_Menu', 'render_export_cv']
         );
     }
 

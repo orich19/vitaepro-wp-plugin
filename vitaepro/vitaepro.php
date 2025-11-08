@@ -39,6 +39,7 @@ class VitaePro {
         require_once plugin_dir_path(__FILE__) . 'includes/class-record-controller.php';
         require_once plugin_dir_path(__FILE__) . 'includes/class-category-controller.php';
         require_once plugin_dir_path(__FILE__) . 'includes/helpers/date-calculator.php';
+        require_once plugin_dir_path(__FILE__) . 'includes/pdf-loader.php';
         require_once plugin_dir_path(__FILE__) . 'includes/class-vitaepro-pdf.php';
     }
 
