@@ -44,6 +44,41 @@ class VitaePro_Admin_Menu {
             [self::class, 'render_records_list']
         );
 
+        $category_controller = new VitaePro_Category_Controller();
+        $categories          = $category_controller->get_categories();
+
+        if ( ! empty( $categories ) ) {
+            foreach ( $categories as $category ) {
+                if ( ! isset( $category->id ) ) {
+                    continue;
+                }
+
+                $category_id   = absint( $category->id );
+                $category_name = isset( $category->name ) ? sanitize_text_field( $category->name ) : '';
+
+                if ( $category_id <= 0 || '' === $category_name ) {
+                    continue;
+                }
+
+                $menu_slug = 'vitaepro-records-list-' . $category_id;
+
+                add_submenu_page(
+                    'vitaepro-dashboard',
+                    sprintf(
+                        /* translators: %s: category name */
+                        __( 'Registros: %s', 'vitaepro' ),
+                        $category_name
+                    ),
+                    $category_name,
+                    'manage_options',
+                    $menu_slug,
+                    function () use ( $category_id, $category_name ) {
+                        self::render_records_list( $category_id, $category_name );
+                    }
+                );
+            }
+        }
+
         // Crear Registro (oculto)
         add_submenu_page(
             null,
@@ -77,8 +112,14 @@ class VitaePro_Admin_Menu {
         self::load_view('categories-create');
     }
 
-    public static function render_records_list() {
-        self::load_view('records-list');
+    public static function render_records_list( $category_id = 0, $category_name = '' ) {
+        self::load_view(
+            'records-list',
+            array(
+                'forced_category_id'   => absint( $category_id ),
+                'forced_category_name' => sanitize_text_field( $category_name ),
+            )
+        );
     }
 
     public static function render_records_create() {
@@ -89,10 +130,15 @@ class VitaePro_Admin_Menu {
         self::load_view('records-edit');
     }
 
-    private static function load_view($view) {
+    private static function load_view($view, $args = array()) {
         $view_file = plugin_dir_path(__DIR__) . 'admin/pages/' . $view . '.php';
 
         if (file_exists($view_file)) {
+            if ( ! empty( $args ) && is_array( $args ) ) {
+                foreach ( $args as $key => $value ) {
+                    ${$key} = $value;
+                }
+            }
             include $view_file;
             return;
         }
