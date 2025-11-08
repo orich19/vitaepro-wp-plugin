@@ -7,32 +7,39 @@ if ( ! current_user_can( 'manage_options' ) ) {
     wp_die( esc_html__( 'No tienes permisos suficientes para acceder a esta página.', 'vitaepro' ) );
 }
 
-$record_controller    = new VitaePro_Record_Controller();
-$category_controller  = new VitaePro_Category_Controller();
-$notice_class = '';
-$notice_text  = '';
+$record_controller   = new VitaePro_Record_Controller();
+$category_controller = new VitaePro_Category_Controller();
+$notice_class        = '';
+$notice_text         = '';
 
-if ( isset( $_GET['action'], $_GET['id'] ) && 'delete' === $_GET['action'] ) {
-    $record_id = absint( $_GET['id'] );
+if ( isset( $_GET['action'], $_GET['id'] ) ) {
+    $action    = sanitize_key( wp_unslash( $_GET['action'] ) );
+    $record_id = absint( wp_unslash( $_GET['id'] ) );
 
-    check_admin_referer( 'vitaepro_delete_record_' . $record_id );
+    if ( 'delete' === $action && $record_id > 0 ) {
+        check_admin_referer( 'vitaepro_delete_record_' . $record_id );
 
-    $result = $record_controller->delete_record( $record_id );
+        $result = $record_controller->delete_record( $record_id );
 
-    if ( is_wp_error( $result ) ) {
-        $notice_class = 'notice notice-error';
-        $notice_text  = $result->get_error_message();
-    } else {
-        $redirect_url = add_query_arg(
-            array(
-                'page'              => 'vitaepro-records-list',
-                'vitaepro_message'  => 'deleted',
-            ),
-            admin_url( 'admin.php' )
-        );
+        if ( ! $result ) {
+            $notice_class = 'notice notice-error';
+            $notice_text  = $record_controller->get_last_error();
 
-        wp_safe_redirect( $redirect_url );
-        exit;
+            if ( empty( $notice_text ) ) {
+                $notice_text = __( 'Ocurrió un error al eliminar el registro.', 'vitaepro' );
+            }
+        } else {
+            $redirect_url = add_query_arg(
+                array(
+                    'page'             => 'vitaepro-records-list',
+                    'vitaepro_message' => 'deleted',
+                ),
+                admin_url( 'admin.php' )
+            );
+
+            wp_safe_redirect( $redirect_url );
+            exit;
+        }
     }
 }
 
@@ -53,13 +60,11 @@ if ( isset( $_GET['vitaepro_message'] ) ) {
     }
 }
 
-$categories      = $category_controller->get_categories();
-if ( ! is_array( $categories ) ) {
-    $categories = array();
-}
-$categories_map  = array();
-$columns_by_cat  = array();
-$all_records     = array();
+$categories     = $category_controller->get_categories();
+$categories     = is_array( $categories ) ? $categories : array();
+$categories_map = array();
+$columns_by_cat = array();
+$all_records    = array();
 
 if ( ! empty( $categories ) ) {
     foreach ( $categories as $category ) {
@@ -81,7 +86,7 @@ if ( ! empty( $categories ) ) {
 usort(
     $all_records,
     function ( $a, $b ) {
-        return strcmp( $b->created_at, $a->created_at );
+        return strcmp( (string) $b->created_at, (string) $a->created_at );
     }
 );
 
@@ -135,18 +140,19 @@ usort(
             <?php else : ?>
                 <?php foreach ( $all_records as $record ) : ?>
                     <?php
-                    $category_name = isset( $categories_map[ $record->category_id ] ) ? $categories_map[ $record->category_id ]->name : '';
-                    $columns       = isset( $columns_by_cat[ $record->category_id ] ) ? $columns_by_cat[ $record->category_id ] : array();
+                    $category_name  = isset( $categories_map[ $record->category_id ] ) ? $categories_map[ $record->category_id ]->name : '';
+                    $columns        = isset( $columns_by_cat[ $record->category_id ] ) ? $columns_by_cat[ $record->category_id ] : array();
+                    $record_data    = is_object( $record ) && isset( $record->data ) && is_array( $record->data ) ? $record->data : array();
                     $primary_values = array();
 
-                    if ( ! empty( $columns ) ) {
+                    if ( ! empty( $columns ) && ! empty( $record_data ) ) {
                         $keys = array_keys( $columns );
                         $keys = array_slice( $keys, 0, 2 );
 
                         foreach ( $keys as $key ) {
-                            $label   = isset( $columns[ $key ]['label'] ) ? $columns[ $key ]['label'] : $key;
-                            $value   = isset( $record->data[ $key ] ) ? $record->data[ $key ] : '';
-                            $primary_values[] = sprintf( '%s: %s', esc_html( $label ), esc_html( $value ) );
+                            $label = isset( $columns[ $key ]['label'] ) ? $columns[ $key ]['label'] : $key;
+                            $value = isset( $record_data[ $key ] ) ? $record_data[ $key ] : '';
+                            $primary_values[] = sprintf( '%s: %s', esc_html( $label ), esc_html( (string) $value ) );
                         }
                     }
 
@@ -176,7 +182,7 @@ usort(
                         <td>
                             <?php if ( ! empty( $primary_values ) ) : ?>
                                 <?php foreach ( $primary_values as $value ) : ?>
-                                    <div><?php echo $value; ?></div>
+                                    <div><?php echo esc_html( $value ); ?></div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </td>

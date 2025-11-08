@@ -10,7 +10,7 @@ if ( ! current_user_can( 'manage_options' ) ) {
 $record_controller   = new VitaePro_Record_Controller();
 $category_controller = new VitaePro_Category_Controller();
 
-$record_id = isset( $_REQUEST['id'] ) ? absint( $_REQUEST['id'] ) : 0;
+$record_id = isset( $_REQUEST['id'] ) ? absint( wp_unslash( $_REQUEST['id'] ) ) : 0;
 
 if ( $record_id <= 0 ) {
     wp_die( esc_html__( 'El registro solicitado no es válido.', 'vitaepro' ) );
@@ -30,7 +30,7 @@ if ( ! $category ) {
 
 $schema  = json_decode( $category->schema_json, true );
 $columns = isset( $schema['columns'] ) && is_array( $schema['columns'] ) ? $schema['columns'] : array();
-$values  = is_array( $record->data ) ? $record->data : array();
+$values  = is_object( $record ) && isset( $record->data ) && is_array( $record->data ) ? $record->data : array();
 
 foreach ( $columns as $key => $definition ) {
     if ( ! isset( $values[ $key ] ) ) {
@@ -41,30 +41,56 @@ foreach ( $columns as $key => $definition ) {
 $notice_class = '';
 $notice_text  = '';
 
-if ( isset( $_POST['vitaepro_record_action'] ) && 'update' === $_POST['vitaepro_record_action'] ) {
+if ( isset( $_POST['vitaepro_record_action'] ) && 'update' === sanitize_key( wp_unslash( $_POST['vitaepro_record_action'] ) ) ) {
     check_admin_referer( 'vitaepro_update_record', 'vitaepro_record_nonce' );
 
     $record_data = array();
 
     foreach ( $columns as $key => $definition ) {
-        $type = isset( $definition['type'] ) ? $definition['type'] : 'text';
+        $type    = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'text';
+        $raw     = isset( $_POST[ $key ] ) ? $_POST[ $key ] : '';
+        $options = isset( $definition['options'] ) && is_array( $definition['options'] ) ? $definition['options'] : array();
 
         switch ( $type ) {
             case 'textarea':
-                $value = isset( $_POST[ $key ] ) ? sanitize_textarea_field( wp_unslash( $_POST[ $key ] ) ) : '';
+                $value = sanitize_textarea_field( wp_unslash( $raw ) );
                 break;
             case 'number':
-                $value = isset( $_POST[ $key ] ) && '' !== $_POST[ $key ] ? floatval( wp_unslash( $_POST[ $key ] ) ) : '';
+                $raw   = is_array( $raw ) ? '' : $raw;
+                $raw   = '' === $raw ? '' : wp_unslash( $raw );
+                $value = '' !== $raw && is_numeric( $raw ) ? 0 + $raw : '';
                 break;
             case 'date':
-                $value = isset( $_POST[ $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) : '';
+                $value = sanitize_text_field( wp_unslash( $raw ) );
                 break;
             case 'checkbox':
-                $value = isset( $_POST[ $key ] ) ? 1 : 0;
+                $value = ! empty( $raw ) ? 1 : 0;
+                break;
+            case 'select':
+                $raw_value = sanitize_text_field( wp_unslash( $raw ) );
+                if ( ! empty( $options ) ) {
+                    $allowed = array();
+                    foreach ( $options as $option_key => $option_label ) {
+                        if ( is_array( $option_label ) && isset( $option_label['value'] ) ) {
+                            $allowed[ (string) $option_label['value'] ] = true;
+                        } elseif ( is_string( $option_key ) ) {
+                            $allowed[ (string) $option_key ] = true;
+                            if ( is_string( $option_label ) ) {
+                                $allowed[ (string) $option_label ] = true;
+                            }
+                        } elseif ( is_string( $option_label ) ) {
+                            $allowed[ (string) $option_label ] = true;
+                        }
+                    }
+
+                    $value = isset( $allowed[ $raw_value ] ) ? $raw_value : '';
+                } else {
+                    $value = $raw_value;
+                }
                 break;
             case 'text':
             default:
-                $value = isset( $_POST[ $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) : '';
+                $value = sanitize_text_field( wp_unslash( $raw ) );
                 break;
         }
 
@@ -74,9 +100,13 @@ if ( isset( $_POST['vitaepro_record_action'] ) && 'update' === $_POST['vitaepro_
 
     $result = $record_controller->update_record( $record_id, $record_data );
 
-    if ( is_wp_error( $result ) ) {
+    if ( ! $result ) {
         $notice_class = 'notice notice-error';
-        $notice_text  = $result->get_error_message();
+        $notice_text  = $record_controller->get_last_error();
+
+        if ( empty( $notice_text ) ) {
+            $notice_text = __( 'Ocurrió un error al actualizar el registro.', 'vitaepro' );
+        }
     } else {
         $redirect_url = add_query_arg(
             array(
@@ -118,9 +148,10 @@ if ( isset( $_POST['vitaepro_record_action'] ) && 'update' === $_POST['vitaepro_
                 <?php foreach ( $columns as $key => $definition ) : ?>
                     <?php
                     $label       = isset( $definition['label'] ) ? $definition['label'] : $key;
-                    $type        = isset( $definition['type'] ) ? $definition['type'] : 'text';
+                    $type        = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'text';
                     $description = isset( $definition['description'] ) ? $definition['description'] : '';
                     $value       = isset( $values[ $key ] ) ? $values[ $key ] : '';
+                    $options     = isset( $definition['options'] ) && is_array( $definition['options'] ) ? $definition['options'] : array();
                     $readonly    = in_array( $key, array( 'anios', 'meses', 'dias' ), true );
                     ?>
                     <tr>
@@ -139,6 +170,25 @@ if ( isset( $_POST['vitaepro_record_action'] ) && 'update' === $_POST['vitaepro_
                                     <input type="checkbox" name="<?php echo esc_attr( $key ); ?>" value="1" <?php checked( ! empty( $value ) ); ?> />
                                     <?php esc_html_e( 'Sí', 'vitaepro' ); ?>
                                 </label>
+                            <?php elseif ( 'select' === $type ) : ?>
+                                <select name="<?php echo esc_attr( $key ); ?>" id="<?php echo esc_attr( $key ); ?>" <?php disabled( $readonly ); ?>>
+                                    <option value=""><?php esc_html_e( 'Selecciona una opción', 'vitaepro' ); ?></option>
+                                    <?php foreach ( $options as $option_key => $option_label ) : ?>
+                                        <?php
+                                        if ( is_array( $option_label ) ) {
+                                            $option_value = isset( $option_label['value'] ) ? (string) $option_label['value'] : '';
+                                            $option_text  = isset( $option_label['label'] ) ? $option_label['label'] : $option_value;
+                                        } elseif ( is_string( $option_key ) ) {
+                                            $option_value = (string) $option_key;
+                                            $option_text  = $option_label;
+                                        } else {
+                                            $option_value = (string) $option_label;
+                                            $option_text  = $option_label;
+                                        }
+                                        ?>
+                                        <option value="<?php echo esc_attr( $option_value ); ?>" <?php selected( $value, $option_value ); ?>><?php echo esc_html( $option_text ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             <?php else : ?>
                                 <input type="text" name="<?php echo esc_attr( $key ); ?>" id="<?php echo esc_attr( $key ); ?>" class="regular-text" value="<?php echo esc_attr( $value ); ?>" <?php readonly( $readonly ); ?> />
                             <?php endif; ?>
