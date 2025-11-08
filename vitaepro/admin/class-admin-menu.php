@@ -44,26 +44,25 @@ class VitaePro_Admin_Menu {
             [self::class, 'render_records_list']
         );
 
+        // Crear Registro (oculto)
         add_submenu_page(
-            'vitaepro-dashboard',
+            null,
             __('Crear Registro', 'vitaepro'),
-            __('Crear Registro', 'vitaepro'),
+            '',
             'manage_options',
             'vitaepro-records-create',
             [self::class, 'render_records_create']
         );
 
+        // Editar Registro (oculto)
         add_submenu_page(
-            'vitaepro-dashboard',
+            null,
             __('Editar Registro', 'vitaepro'),
-            __('Editar Registro', 'vitaepro'),
+            '',
             'manage_options',
             'vitaepro-records-edit',
             [self::class, 'render_records_edit']
         );
-
-        remove_submenu_page('vitaepro-dashboard', 'vitaepro-records-create');
-        remove_submenu_page('vitaepro-dashboard', 'vitaepro-records-edit');
     }
 
     public static function render_dashboard() {
