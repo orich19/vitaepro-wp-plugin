@@ -56,5 +56,13 @@ class VitaePro_Activator {
 
         dbDelta( $categories_sql );
         dbDelta( $records_sql );
+
+        require_once plugin_dir_path(__FILE__) . 'class-vitaepro-pdf.php';
+
+        if ( class_exists( 'VitaePro_PDF' ) ) {
+            VitaePro_PDF::register_rewrite_rules();
+        }
+
+        flush_rewrite_rules();
     }
 }

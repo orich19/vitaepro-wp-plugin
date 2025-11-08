@@ -98,6 +98,15 @@ class VitaePro_Admin_Menu {
             'vitaepro-records-edit',
             [self::class, 'render_records_edit']
         );
+
+        add_submenu_page(
+            null,
+            __('Exportar PDF', 'vitaepro'),
+            '',
+            'manage_options',
+            'vitaepro-export-pdf',
+            [self::class, 'render_export_pdf']
+        );
     }
 
     public static function render_dashboard() {
@@ -128,6 +137,10 @@ class VitaePro_Admin_Menu {
 
     public static function render_records_edit() {
         self::load_view('records-edit');
+    }
+
+    public static function render_export_pdf() {
+        self::load_view('export-pdf');
     }
 
     private static function load_view($view, $args = array()) {

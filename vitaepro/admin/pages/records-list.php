@@ -253,6 +253,18 @@ $create_url = add_query_arg( $create_args, admin_url( 'admin.php' ) );
                         add_query_arg( $delete_args, admin_url( 'admin.php' ) ),
                         'vitaepro_delete_record_' . $record->id
                     );
+
+                    $export_pdf_url = '';
+
+                    if ( isset( $record->user_id ) && $record->user_id > 0 ) {
+                        $export_pdf_url = add_query_arg(
+                            array(
+                                'page'    => 'vitaepro-export-pdf',
+                                'user_id' => absint( $record->user_id ),
+                            ),
+                            admin_url( 'admin.php' )
+                        );
+                    }
                     ?>
                     <tr>
                         <td><?php echo esc_html( $record->id ); ?></td>
@@ -268,6 +280,11 @@ $create_url = add_query_arg( $create_args, admin_url( 'admin.php' ) );
                         <td>
                             <a href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Editar', 'vitaepro' ); ?></a> |
                             <a href="<?php echo esc_url( $delete_url ); ?>" onclick="return confirm('<?php echo esc_js( __( '¿Estás seguro de que deseas eliminar este registro?', 'vitaepro' ) ); ?>');"><?php esc_html_e( 'Eliminar', 'vitaepro' ); ?></a>
+                            <?php if ( $export_pdf_url ) : ?>
+                                <div style="margin-top: 6px;">
+                                    <a class="button button-primary" href="<?php echo esc_url( $export_pdf_url ); ?>"><?php esc_html_e( 'Exportar PDF', 'vitaepro' ); ?></a>
+                                </div>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>

@@ -1,0 +1,8 @@
+{
+    "name": "sendatec/vitaepro",
+    "description": "Plugin VitaePro para WordPress",
+    "type": "wordpress-plugin",
+    "require": {
+        "dompdf/dompdf": "^2.0"
+    }
+}
