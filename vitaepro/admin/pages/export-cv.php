@@ -10,24 +10,23 @@ if ( ! current_user_can( 'manage_options' ) ) {
     wp_die( esc_html__( 'No tienes permisos suficientes para acceder a esta página.', 'vitaepro' ) );
 }
 
-require_once dirname( dirname( __DIR__ ) ) . '/includes/pdf-loader.php';
+$plugin_dir      = dirname( dirname( __DIR__ ) );
+$dompdf_autoload = $plugin_dir . '/vendor/autoload.php';
 
-$plugin_dir        = dirname( dirname( __DIR__ ) );
-$dompdf_autoload   = $plugin_dir . '/vendor/dompdf/autoload.inc.php';
-$dompdf_is_present = file_exists( $dompdf_autoload );
-
-if ( ! $dompdf_is_present ) {
+if ( ! file_exists( $dompdf_autoload ) ) {
     echo '<div class="wrap">';
     echo '<h1>Exportar CV</h1>';
-    echo '<div class="notice notice-error"><p>No se encontró Dompdf. Sube la carpeta /vendor/dompdf/ al plugin para habilitar la exportación.</p></div>';
+    echo '<div class="notice notice-error"><p>No se encontró Dompdf. Sube la carpeta /vendor/ completa al plugin para habilitar la exportación.</p></div>';
     echo '</div>';
     return;
 }
 
-if ( ! class_exists( '\\Dompdf\\Dompdf' ) || ! class_exists( '\\Dompdf\\Options' ) ) {
+require_once $dompdf_autoload;
+
+if ( ! class_exists( '\\Dompdf\\Dompdf' ) ) {
     echo '<div class="wrap">';
     echo '<h1>Exportar CV</h1>';
-    echo '<div class="notice notice-error"><p>No se encontró Dompdf. Sube la carpeta /vendor/dompdf/ al plugin para habilitar la exportación.</p></div>';
+    echo '<div class="notice notice-error"><p>El autoloader se encontró, pero la clase Dompdf no existe. Verifica que /vendor esté completo.</p></div>';
     echo '</div>';
     return;
 }
@@ -200,12 +199,15 @@ ob_start();
 </body>
 </html>
 <?php
-$html = ob_get_clean();
+$html = ob_get_contents();
 
 $options = new Options();
 $options->set( 'isRemoteEnabled', true );
 
 $dompdf = new Dompdf( $options );
+
+ob_end_clean();
+
 $dompdf->loadHtml( $html );
 $dompdf->setPaper( 'A4', 'portrait' );
 $dompdf->render();
